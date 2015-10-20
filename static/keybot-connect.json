@@ -1,0 +1,39 @@
+{{define "config"}}{
+    "key": "ga-hipchat-builder",
+    "name": "QOELabs Keybot Bot",
+    "description": "store and share public keys over hipchat",
+    "vendor": {
+        "name": "QOELabs",
+        "url": "https://www.qoelabs.com"
+    },
+    "links": {
+        "self": "{{.LocalBaseUrl}}/keybot-connect.json",
+        "homepage": "{{.LocalBaseUrl}}/keybot-connect.json"
+    },
+    "capabilities": {
+        "hipchatApiConsumer": {
+            "scopes": [
+                "send_notification"
+            ]
+        },
+        "installable": {
+            "callbackUrl": "{{.LocalBaseUrl}}/installable"
+        },
+        "configurable": {
+             "url": "{{.LocalBaseUrl}}/config"
+        },
+        "webhook": {
+            "url": "{{.LocalBaseUrl}}/setkey",
+            "pattern": "^/test_hook",
+            "event": "room_message",
+            "name": "Set Key Bot"
+        }
+        "webhook": {
+            "url": "{{.LocalBaseUrl}}/getkey",
+            "pattern": "^/test_hook",
+            "event": "room_message",
+            "name": "Get Key Bot"
+        }
+    }
+}
+{{end}}
