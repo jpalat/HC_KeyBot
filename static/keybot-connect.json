@@ -27,12 +27,6 @@
             "pattern": "^/setkey",
             "event": "room_message",
             "name": "Set Key Bot"
-        },
-        "webhook": {
-            "url": "{{.LocalBaseUrl}}/get_keys",
-            "pattern": "^/getkey",
-            "event": "room_message",
-            "name": "Get Key Bot"
         }
     }
 }
