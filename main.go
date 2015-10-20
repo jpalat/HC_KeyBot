@@ -191,7 +191,7 @@ func (c *Context) set_keys(w http.ResponseWriter, r *http.Request) {
 			userID:  senderID,
 		}
 
-		stmt, err := db.Prepare("INSERT INTO keys(userid, keytype, keytext) VALUES($1,$2,$3:wq)")
+		stmt, err := db.Prepare("INSERT INTO keys(userid, keytype, keytext) VALUES($1,$2,$3)")
 		if err != nil {
 			log.Fatal(err)
 		}
