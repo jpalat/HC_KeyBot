@@ -278,7 +278,13 @@ func main() {
 		dbuser, dbpassword, dbname, dbhost)
 	db, err := sql.Open("postgres", dbinfo)
 	checkErr(err)
+
 	defer db.Close()
+
+	err = db.Ping()
+	if err == nil {
+		log.Printf("No ping to db")
+	}
 
 	c := &Context{
 		baseURL: *baseURL,
