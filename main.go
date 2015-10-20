@@ -156,6 +156,7 @@ func (c *Context) set_keys(w http.ResponseWriter, r *http.Request) {
 	senderID := int((payLoad["item"].(map[string]interface{}))["message"].(map[string]interface{})["from"].(map[string]interface{})["id"].(float64))
 	payloadMsg := payLoad["item"].(map[string]interface{})["message"].(map[string]interface{})["message"]
 
+	log.Printf("Room %s \n sender: %n: \n payload: %s ", roomID, senderID, payloadMsg)
 	var messageStr string
 	var colorStr string
 
@@ -191,21 +192,21 @@ func (c *Context) set_keys(w http.ResponseWriter, r *http.Request) {
 			userID:  senderID,
 		}
 
-		stmt, err := db.Prepare("INSERT INTO keys(userid, keytype, keytext) VALUES($1,$2,$3)")
-		if err != nil {
-			log.Fatal(err)
+		stmt, dberr := db.Prepare("INSERT INTO keys(userid, keytype, keytext) VALUES($1,$2,$3)")
+		if dberr != nil {
+			log.Fatal(dberr)
 		}
-		res, err := stmt.Exec(uk.userID, uk.keyType, uk.keyText)
-		if err != nil {
-			log.Fatal(err)
+		res, dberr := stmt.Exec(uk.userID, uk.keyType, uk.keyText)
+		if dberr != nil {
+			log.Fatal(dberr)
 		}
-		lastId, err := res.LastInsertId()
-		if err != nil {
-			log.Fatal(err)
+		lastId, dberr := res.LastInsertId()
+		if dberr != nil {
+			log.Fatal(dberr)
 		}
-		rowCnt, err := res.RowsAffected()
+		rowCnt, dberr := res.RowsAffected()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(dberr)
 		}
 		log.Printf("ID = %d, affected = %d\n", lastId, rowCnt)
 
@@ -284,6 +285,8 @@ func main() {
 	err = db.Ping()
 	if err == nil {
 		log.Printf("No ping to db")
+	} else {
+		log.Printf("Ping successful")
 	}
 
 	c := &Context{
