@@ -192,6 +192,10 @@ func (c *Context) set_keys(w http.ResponseWriter, r *http.Request) {
 			userID:  senderID,
 		}
 
+		if db == nil{
+			log.Printf("db is nil")
+		}
+
 		stmt, dberr := db.Prepare("INSERT INTO keys(userid, keytype, keytext) VALUES($1,$2,$3)")
 		if dberr != nil {
 			log.Fatal(dberr)
