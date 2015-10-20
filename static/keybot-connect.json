@@ -27,7 +27,7 @@
             "pattern": "^/test_hook",
             "event": "room_message",
             "name": "Set Key Bot"
-        }
+        },
         "webhook": {
             "url": "{{.LocalBaseUrl}}/getkey",
             "pattern": "^/test_hook",
