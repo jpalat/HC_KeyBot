@@ -267,22 +267,6 @@ func (c *Context) routes() *mux.Router {
 
 var db *sql.DB
 
-func init() {
-  var err error
-	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable",
-		dbuser, dbpassword, dbname, dbhost)
-	db, err := sql.Open("postgres", dbinfo)  if err != nil {
-    log.Fatal(err)
-  }
-
-	err = db.Ping()
-	if err == nil {
-		log.Printf("No ping to db")
-	} else {
-		log.Printf("Ping successful")
-	}
-}
-
 func main() {
 	var (
 		port       = flag.String("port", "7631", "web server port")
@@ -294,6 +278,20 @@ func main() {
 		dbname     = flag.String("dbname", os.Getenv("BOTDB_USER"), "databse user")
 	)
 	flag.Parse()
+
+	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable",
+		dbuser, dbpassword, dbname, dbhost)
+	db, err := sql.Open("postgres", dbinfo)
+	checkErr(err)
+
+	defer db.Close()
+
+	err = db.Ping()
+	if err == nil {
+		log.Printf("No ping to db")
+	} else {
+		log.Printf("Ping successful")
+	}
 
 	c := &Context{
 		baseURL: *baseURL,
