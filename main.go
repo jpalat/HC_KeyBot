@@ -105,12 +105,14 @@ func (c *Context) config(w http.ResponseWriter, r *http.Request) {
 func (c *Context) triageMessage(w http.ResponseWriter, r *http.Request) {
 	payLoad, err := util.DecodePostJSON(r, true)
 	if err != nil {
-		log.Fatalf("Parsed auth data failed:%v\n", err)
+		log.Fatalf("Parsed payload failed:%v\n", err)
 	}
-	message := payLoad["item"].(map[string]interface{})["message"].(map[string]interface{})["message"]
+	payloadMsg := payLoad["item"].(map[string]interface{})["message"].(map[string]interface{})["message"]
 
-	if strings.Contains(message, "keybot set") {
-		set_keys(w, r, payLoad)
+	if payloadMsg, ok := payloadMsg.(string); ok {
+		if strings.Contains(payloadMsg, "keybot set") {
+			set_keys(w, r, payLoad)
+		}
 	}
 
 }
