@@ -23,10 +23,10 @@
              "url": "{{.LocalBaseUrl}}/config"
         },
         "webhook": {
-            "url": "{{.LocalBaseUrl}}/set_keys",
-            "pattern": "^/setkey",
+            "url": "{{.LocalBaseUrl}}/keybot",
+            "pattern": "^/keybot",
             "event": "room_message",
-            "name": "Set Key Bot"
+            "name": "Key Bot"
         }
     }
 }
