@@ -284,8 +284,8 @@ func main() {
 	)
 	flag.Parse()
 
-	//dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable",
-	dbinfo := fmt.Sprintf("postgres://%s:%s@localhost/%s", &dbuser, &dbpassword, dbname, dbhost)
+	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable", *dbuser, *dbpassword, *dbname, *dbhost)
+	//dbinfo := fmt.Sprintf("postgres://%s:%s@%s/%s", *dbuser, *dbpassword, *dbhost, *dbname)
 	log.Printf(dbinfo)
 
 	db, err := sql.Open("postgres", dbinfo)
