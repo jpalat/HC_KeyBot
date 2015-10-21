@@ -102,48 +102,21 @@ func (c *Context) config(w http.ResponseWriter, r *http.Request) {
 	tmpl.ExecuteTemplate(w, "layout", vals)
 }
 
-func (c *Context) get_keys(w http.ResponseWriter, r *http.Request) {
+func (c *Context) triageMessage(w http.ResponseWriter, r *http.Request) {
 	payLoad, err := util.DecodePostJSON(r, true)
 	if err != nil {
 		log.Fatalf("Parsed auth data failed:%v\n", err)
 	}
+	message := payLoad["item"].(map[string]interface{})["message"].(map[string]interface{})["message"]
 
-	roomID := strconv.Itoa(int((payLoad["item"].(map[string]interface{}))["room"].(map[string]interface{})["id"].(float64)))
-	//mentionedUsers := payLoad["item"].(map[string]interface{})["message"].(map[string]interface{})["from"].(map[string]interface{})["id"]
-	payloadMsg := payLoad["item"].(map[string]interface{})["message"].(map[string]interface{})["message"]
-	var messageStr string
-	var colorStr string
-
-	if payloadMsg, ok := payloadMsg.(string); ok {
-		payloadMsg = strings.Replace(payloadMsg, "/get_key", "", -1)
-
-		colorStr = "blue"
-	} else {
-		messageStr = "Error, bad message "
-		colorStr = "red"
+	if strings.Contains(message, "keybot set") {
+		set_keys(w, r, payLoad)
 	}
 
-	log.Printf("Sending notification to %s\n", roomID)
-	notifRq := &hipchat.NotificationRequest{
-		Message:       messageStr,
-		MessageFormat: "html",
-		Color:         colorStr,
-	}
-	if _, ok := c.rooms[roomID]; ok {
-		_, err = c.rooms[roomID].hc.Room.Notification(roomID, notifRq)
-		if err != nil {
-			log.Printf("Failed to notify HipChat channel:%v\n", err)
-		}
-	} else {
-		log.Printf("Room is not registered correctly:%v\n", c.rooms)
-	}
 }
 
-func (c *Context) set_keys(w http.ResponseWriter, r *http.Request) {
-	payLoad, err := util.DecodePostJSON(r, true)
-	if err != nil {
-		log.Fatalf("Parsed auth data failed:%v\n", err)
-	}
+func (c *Context) set_keys(w http.ResponseWriter, r *http.Request, payload map[string]interface{}) {
+
 	/*
 
 	 Get the basic infomation to proceed:
@@ -155,14 +128,15 @@ func (c *Context) set_keys(w http.ResponseWriter, r *http.Request) {
 
 	roomID := strconv.Itoa(int((payLoad["item"].(map[string]interface{}))["room"].(map[string]interface{})["id"].(float64)))
 	senderID := int((payLoad["item"].(map[string]interface{}))["message"].(map[string]interface{})["from"].(map[string]interface{})["id"].(float64))
+	mentionID := (payLoad["item"].(map[string]interface{}))["message"].(map[string]interface{})["from"].(map[string]interface{})["mention_name"]
 	payloadMsg := payLoad["item"].(map[string]interface{})["message"].(map[string]interface{})["message"]
 
 	log.Printf("Room %s \n sender: %n: \n payload: %s ", roomID, senderID, payloadMsg)
+
+	// Prep response
 	var messageStr string
 	var colorStr string
 
-	// var uk UserKey
-	// var userMtn string
 	var keyText string
 	var keyType string
 
@@ -223,6 +197,7 @@ func (c *Context) set_keys(w http.ResponseWriter, r *http.Request) {
 
 		checkErr(err)
 		colorStr = "blue"
+		messageStr = "Saved Key"
 	} else {
 		messageStr = "Error, bad message "
 		colorStr = "red"
@@ -265,8 +240,7 @@ func (c *Context) routes() *mux.Router {
 	r.Path("/installable").Methods("POST").HandlerFunc(c.installable)
 	r.Path("/config").Methods("GET").HandlerFunc(c.config)
 
-	r.Path("/set_keys").Methods("POST").HandlerFunc(c.set_keys)
-	r.Path("/get_keys").Methods("POST").HandlerFunc(c.get_keys)
+	r.Path("/keybot").Methods("POST").HandlerFunc(c.set_keys)
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir(c.static)))
 	return r
@@ -285,7 +259,6 @@ func main() {
 	flag.Parse()
 
 	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable", *dbuser, *dbpassword, *dbname, *dbhost)
-	//dbinfo := fmt.Sprintf("postgres://%s:%s@%s/%s", *dbuser, *dbpassword, *dbhost, *dbname)
 	log.Printf(dbinfo)
 
 	db, err := sql.Open("postgres", dbinfo)
