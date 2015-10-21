@@ -33,6 +33,7 @@ type Context struct {
 	static  string
 	//rooms per room OAuth configuration and client
 	rooms map[string]*RoomConfig
+	db    *sql.DB
 }
 
 // Key store class
@@ -192,11 +193,17 @@ func (c *Context) set_keys(w http.ResponseWriter, r *http.Request) {
 			userID:  senderID,
 		}
 
-		if db == nil{
+		if c.db == nil {
 			log.Printf("db is nil")
 		}
 
-		stmt, dberr := db.Prepare("INSERT INTO keys(userid, keytype, keytext) VALUES($1,$2,$3)")
+		err = c.db.Ping()
+		if err == nil {
+			log.Printf("No ping to db")
+		} else {
+			log.Printf("Ping successful")
+		}
+		stmt, dberr := c.db.Prepare("INSERT INTO keys(userid, keytype, keytext) VALUES($1,$2,$3)")
 		if dberr != nil {
 			log.Fatal(dberr)
 		}
@@ -265,8 +272,6 @@ func (c *Context) routes() *mux.Router {
 	return r
 }
 
-var db *sql.DB
-
 func main() {
 	var (
 		port       = flag.String("port", "7631", "web server port")
@@ -274,13 +279,15 @@ func main() {
 		baseURL    = flag.String("baseurl", os.Getenv("BASE_URL"), "local base url")
 		dbhost     = flag.String("database", "localhost", "database server")
 		dbuser     = flag.String("dbuser", os.Getenv("BOTDB_USER"), "databse user")
-		dbpassword = flag.String("dbpassword", os.Getenv("BOTDB_USER"), "databse user")
-		dbname     = flag.String("dbname", os.Getenv("BOTDB_USER"), "databse user")
+		dbpassword = flag.String("dbpassword", os.Getenv("BOTDB_PASS"), "databse user")
+		dbname     = flag.String("dbname", os.Getenv("BOTDB_DB"), "databse user")
 	)
 	flag.Parse()
 
-	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable",
-		dbuser, dbpassword, dbname, dbhost)
+	//dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable",
+	dbinfo := fmt.Sprintf("postgres://%s:%s@localhost/%s", &dbuser, &dbpassword, dbname, dbhost)
+	log.Printf(dbinfo)
+
 	db, err := sql.Open("postgres", dbinfo)
 	checkErr(err)
 
@@ -296,6 +303,7 @@ func main() {
 	c := &Context{
 		baseURL: *baseURL,
 		static:  *static,
+		db:      db,
 		rooms:   make(map[string]*RoomConfig),
 	}
 
