@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	_ "github.com/lib/pq"
+	"github.com/gorilla/mux"
+	"github.com/jpalat/HC_KeyBot/model"
+	"github.com/jpalat/HC_KeyBot/util"
+	"github.com/tbruyelle/hipchat-go/hipchat"
 	"html/template"
 	"log"
 	"net/http"
@@ -13,11 +16,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-
-	"bitbucket.org/atlassianlabs/hipchat-golang-base/util"
-
-	"github.com/gorilla/mux"
-	"github.com/tbruyelle/hipchat-go/hipchat"
 )
 
 // RoomConfig holds information to send messages to a specific room
@@ -34,14 +32,6 @@ type Context struct {
 	//rooms per room OAuth configuration and client
 	rooms map[string]*RoomConfig
 	db    *sql.DB
-}
-
-// Key store class
-type UserKey struct {
-	userMention string
-	keyText     string
-	keyType     string
-	userID      int
 }
 
 func (c *Context) healthcheck(w http.ResponseWriter, r *http.Request) {
@@ -107,104 +97,20 @@ func (c *Context) triageMessage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("Parsed payload failed:%v\n", err)
 	}
-	payloadMsg := payLoad["item"].(map[string]interface{})["message"].(map[string]interface{})["message"]
-
-	if payloadMsg, ok := payloadMsg.(string); ok {
-		if strings.Contains(payloadMsg, "keybot set") {
-			set_keys(w, r, payLoad)
-		}
-	}
-
-}
-
-func (c *Context) set_keys(w http.ResponseWriter, r *http.Request, payload map[string]interface{}) {
-
-	/*
-
-	 Get the basic infomation to proceed:
-	  * RoomID -> where did this message come from
-	  * senderID -> who did this message come from
-	  * payloadMsg - > what is this message
-
-	*/
-
 	roomID := strconv.Itoa(int((payLoad["item"].(map[string]interface{}))["room"].(map[string]interface{})["id"].(float64)))
-	senderID := int((payLoad["item"].(map[string]interface{}))["message"].(map[string]interface{})["from"].(map[string]interface{})["id"].(float64))
-	mentionID := (payLoad["item"].(map[string]interface{}))["message"].(map[string]interface{})["from"].(map[string]interface{})["mention_name"]
+
 	payloadMsg := payLoad["item"].(map[string]interface{})["message"].(map[string]interface{})["message"]
 
-	log.Printf("Room %s \n sender: %n: \n payload: %s ", roomID, senderID, payloadMsg)
-
-	// Prep response
 	var messageStr string
 	var colorStr string
 
-	var keyText string
-	var keyType string
-
 	if payloadMsg, ok := payloadMsg.(string); ok {
-		payloadMsg = strings.Replace(payloadMsg, "/set_key ", "", -1)
-		//Get the type of key
-		var strParts = strings.Split(payloadMsg, " ")
-		for _, pair := range strParts {
-			tokens := strings.Split(pair, "=")
-			if strings.ToLower(tokens[0]) == "type" {
-				keyType = tokens[1]
-			}
+		if strings.Contains(payloadMsg, "keybot set") {
+			messageStr, colorStr = set_keys(payLoad, c.db)
 		}
-		//Get the start of key
-		if strings.Contains(payloadMsg, "-----BEGIN") {
-			keyText = payloadMsg[strings.Index(payloadMsg, "-----BEGIN"):]
-		}
-		if strings.Contains(payloadMsg, "----- BEGIN") {
-			keyText = payloadMsg[strings.Index(payloadMsg, "----- BEGIN"):]
-		}
-		if strings.Contains(payloadMsg, "ssh-rsa") {
-			keyText = payloadMsg[strings.Index(payloadMsg, "ssh-rsa"):]
-		}
-
-		uk := UserKey{
-			keyText: keyText,
-			keyType: keyType,
-			userID:  senderID,
-		}
-
-		if c.db == nil {
-			log.Printf("db is nil")
-		}
-
-		err = c.db.Ping()
-		if err == nil {
-			log.Printf("No ping to db")
-		} else {
-			log.Printf("Ping successful")
-		}
-		stmt, dberr := c.db.Prepare("INSERT INTO keys(userid, keytype, keytext) VALUES($1,$2,$3)")
-		if dberr != nil {
-			log.Fatal(dberr)
-		}
-		res, dberr := stmt.Exec(uk.userID, uk.keyType, uk.keyText)
-		if dberr != nil {
-			log.Fatal(dberr)
-		}
-		lastId, dberr := res.LastInsertId()
-		if dberr != nil {
-			log.Fatal(dberr)
-		}
-		rowCnt, dberr := res.RowsAffected()
-		if err != nil {
-			log.Fatal(dberr)
-		}
-		log.Printf("ID = %d, affected = %d\n", lastId, rowCnt)
-
-		checkErr(err)
-		colorStr = "blue"
-		messageStr = "Saved Key"
-	} else {
-		messageStr = "Error, bad message "
-		colorStr = "red"
 	}
 
+	//Respond
 	log.Printf("Sending notification to %s\n", roomID)
 	notifRq := &hipchat.NotificationRequest{
 		Message:       messageStr,
@@ -219,6 +125,41 @@ func (c *Context) set_keys(w http.ResponseWriter, r *http.Request, payload map[s
 	} else {
 		log.Printf("Room is not registered correctly:%v\n", c.rooms)
 	}
+
+}
+
+func set_keys(payLoad map[string]interface{}, db *sql.DB) (string, string) {
+
+	/*
+
+	 Get the basic infomation to proceed:
+	  * RoomID -> where did this message come from
+	  * senderID -> who did this message come from
+	  * payloadMsg - > what is this message
+
+	*/
+
+	senderID := int((payLoad["item"].(map[string]interface{}))["message"].(map[string]interface{})["from"].(map[string]interface{})["id"].(float64))
+	mentionID := (payLoad["item"].(map[string]interface{}))["message"].(map[string]interface{})["from"].(map[string]interface{})["mention_name"]
+	payloadMsg := payLoad["item"].(map[string]interface{})["message"].(map[string]interface{})["message"]
+
+	log.Printf("sender: %n: \n payload: %s ", senderID, payloadMsg)
+
+	// Prep response
+	var messageStr string
+	var colorStr string
+
+	if payloadMsg, ok := payloadMsg.(string); ok {
+		if mentionID, ok := mentionID.(string); ok {
+			colorStr = "blue"
+			messageStr, _ = model.SetKey(db, senderID, mentionID, payloadMsg)
+		}
+	} else {
+		messageStr = "Error, bad message "
+		colorStr = "red"
+	}
+
+	return messageStr, colorStr
 }
 
 func checkErr(err error) {
@@ -242,7 +183,7 @@ func (c *Context) routes() *mux.Router {
 	r.Path("/installable").Methods("POST").HandlerFunc(c.installable)
 	r.Path("/config").Methods("GET").HandlerFunc(c.config)
 
-	r.Path("/keybot").Methods("POST").HandlerFunc(c.set_keys)
+	r.Path("/keybot").Methods("POST").HandlerFunc(c.triageMessage)
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir(c.static)))
 	return r
@@ -263,8 +204,12 @@ func main() {
 	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable", *dbuser, *dbpassword, *dbname, *dbhost)
 	log.Printf(dbinfo)
 
-	db, err := sql.Open("postgres", dbinfo)
-	checkErr(err)
+	//db, err := sql.Open("postgres", dbinfo)
+
+	db, err := model.NewDB(dbinfo)
+	if err != nil {
+		log.Panic(err)
+	}
 
 	defer db.Close()
 
